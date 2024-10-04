@@ -176,6 +176,7 @@ fn configure_server(
     let mut server_config = ServerConfig::with_single_cert(cert_chain, priv_key.into())?;
     let transport_config = Arc::get_mut(&mut server_config.transport).unwrap();
     transport_config.max_concurrent_uni_streams(0_u8.into());
+    transport_config.initial_rtt(Duration::from_millis(100));
     transport_config.max_idle_timeout(Some(
         Duration::from_secs(30)
             .try_into()

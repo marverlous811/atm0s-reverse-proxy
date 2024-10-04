@@ -58,6 +58,7 @@ fn configure_client(server_certs: &[CertificateDer]) -> anyhow::Result<ClientCon
 
     let mut transport = TransportConfig::default();
     transport.keep_alive_interval(Some(Duration::from_secs(3)));
+    transport.initial_rtt(Duration::from_millis(100));
     config.transport_config(Arc::new(transport));
     Ok(config)
 }
