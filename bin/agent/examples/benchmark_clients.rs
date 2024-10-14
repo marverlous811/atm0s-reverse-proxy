@@ -4,15 +4,21 @@ use std::{
     time::{Duration, Instant},
 };
 
-use atm0s_reverse_proxy_agent::{run_tunnel_connection, Connection, Protocol, QuicConnection, ServiceRegistry, SimpleServiceRegistry, SubConnection, TcpConnection};
-use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+use atm0s_reverse_proxy_agent::{run_tunnel_connection, Connection, Protocol, ServiceRegistry, SimpleServiceRegistry, SubConnection, TcpConnection};
 use clap::Parser;
-use protocol::DEFAULT_TUNNEL_CERT;
 use protocol_ed25519::AgentLocalKey;
-use rustls::pki_types::CertificateDer;
 use tokio::time::sleep;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use url::Url;
+
+#[cfg(feature = "quic")]
+use atm0s_reverse_proxy_agent::QuicConnection;
+#[cfg(feature = "quic")]
+use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+#[cfg(feature = "quic")]
+use protocol::DEFAULT_TUNNEL_CERT;
+#[cfg(feature = "quic")]
+use rustls::pki_types::CertificateDer;
 
 /// A benchmark util for simulating multiple clients connect to relay server
 #[derive(Parser, Debug, Clone)]
@@ -83,8 +89,10 @@ async fn main() {
 }
 
 async fn connect(client: usize, args: Args, registry: Arc<dyn ServiceRegistry>) {
+    #[cfg(feature = "quic")]
     let default_tunnel_cert = CertificateDer::from(DEFAULT_TUNNEL_CERT.to_vec());
 
+    #[cfg(feature = "quic")]
     let server_certs = if let Some(cert) = args.custom_quic_cert_base64 {
         vec![CertificateDer::from(URL_SAFE.decode(&cert).expect("Custom cert should in base64 format").to_vec())]
     } else {
@@ -106,6 +114,11 @@ async fn connect(client: usize, args: Args, registry: Arc<dyn ServiceRegistry>) 
                     log::error!("Connect to connector via tcp error: {e}");
                 }
             },
+            #[cfg(not(feature = "quic"))]
+            Protocol::Quic => {
+                log::error!("Quic is not enabled");
+            }
+            #[cfg(feature = "quic")]
             Protocol::Quic => match QuicConnection::new(args.connector_addr.clone(), &agent_signer, &server_certs, args.allow_quic_insecure).await {
                 Ok(conn) => {
                     log::info!("Connected to connector via quic with res {:?}", conn.response());

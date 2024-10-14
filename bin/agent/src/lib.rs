@@ -5,8 +5,10 @@ use protocol::cluster::{wait_object, AgentTunnelRequest};
 mod connection;
 mod local_tunnel;
 
+#[cfg(feature = "quic")]
+pub use connection::quic::{QuicConnection, QuicSubConnection};
+
 pub use connection::{
-    quic::{QuicConnection, QuicSubConnection},
     tcp::{TcpConnection, TcpSubConnection},
     Connection, Protocol, SubConnection,
 };

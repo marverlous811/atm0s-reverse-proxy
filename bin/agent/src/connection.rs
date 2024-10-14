@@ -6,7 +6,9 @@ use clap::ValueEnum;
 use protocol::stream::TunnelStream;
 use tokio::io::{AsyncRead, AsyncWrite};
 
+#[cfg(feature = "quic")]
 pub mod quic;
+
 pub mod tcp;
 
 #[derive(ValueEnum, Debug, Clone)]

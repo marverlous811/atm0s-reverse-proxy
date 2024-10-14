@@ -1,14 +1,21 @@
 use std::{alloc::System, net::SocketAddr, sync::Arc};
 
-use atm0s_reverse_proxy_agent::{run_tunnel_connection, Connection, Protocol, QuicConnection, ServiceRegistry, SimpleServiceRegistry, SubConnection, TcpConnection};
-use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+use atm0s_reverse_proxy_agent::{run_tunnel_connection, Connection, Protocol, ServiceRegistry, SimpleServiceRegistry, SubConnection, TcpConnection};
 use clap::Parser;
-use protocol::{services::SERVICE_RTSP, DEFAULT_TUNNEL_CERT};
+use protocol::services::SERVICE_RTSP;
 use protocol_ed25519::AgentLocalKey;
-use rustls::pki_types::CertificateDer;
 use tokio::time::sleep;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use url::Url;
+
+#[cfg(feature = "quic")]
+use atm0s_reverse_proxy_agent::QuicConnection;
+#[cfg(feature = "quic")]
+use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+#[cfg(feature = "quic")]
+use protocol::DEFAULT_TUNNEL_CERT;
+#[cfg(feature = "quic")]
+use rustls::pki_types::CertificateDer;
 
 #[global_allocator]
 static A: System = System;
@@ -58,6 +65,7 @@ struct Args {
 async fn main() {
     let args = Args::parse();
 
+    #[cfg(feature = "quic")]
     let server_certs = if let Some(cert) = args.custom_quic_cert_base64 {
         vec![CertificateDer::from(URL_SAFE.decode(cert).expect("Custom cert should in base64 format").to_vec())]
     } else {
@@ -119,6 +127,13 @@ async fn main() {
                     log::error!("Connect to connector via tcp error: {e}");
                 }
             },
+            #[cfg(not(feature = "quic"))]
+            Protocol::Quic => {
+                log::error!("Quic is not enabled, please enable quic feature");
+                return;
+            }
+
+            #[cfg(feature = "quic")]
             Protocol::Quic => match QuicConnection::new(args.connector_addr.clone(), &agent_signer, &server_certs, args.allow_quic_insecure).await {
                 Ok(conn) => {
                     log::info!("Connected to connector via quic with res {:?}", conn.response());
