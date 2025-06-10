@@ -142,6 +142,16 @@ async fn run_connection<VALIDATE: ClusterValidator<REQ>, REQ: ClusterRequest>(
                             }
                         });
                     }
+                    AgentSessionControl::ForeceStop(tx) => {
+                        log::info!("[AgentTls] agent {agent_id} {session_id} force stop session");
+                        let mut control = session.control().clone();
+                        tokio::spawn(async move {
+                            let _ = control.close().await;
+                            if let Err(e) = tx.send(()) {
+                                log::error!("[AgentTls] agent {agent_id} {session_id} send force stop error: {:?}", e);
+                            }
+                        });
+                    }
                 },
                 None => {
                     break;
@@ -156,11 +166,11 @@ async fn run_connection<VALIDATE: ClusterValidator<REQ>, REQ: ClusterRequest>(
                     });
                 },
                 Some(Err(err)) => {
-                    log::error!("[AgentTls] agent {agent_id} {session_id} Tcp connection error {err:?}");
+                    log::error!("[AgentTls] agent {agent_id} {session_id} with remote {remote}  Tcp connection error {err:?}");
                     break;
                 },
                 None => {
-                    log::error!("[AgentTls] agent {agent_id} {session_id} Tcp connection broken with None");
+                    log::error!("[AgentTls] agent {agent_id} {session_id} with remote {remote}  Tcp connection broken with None");
                     break;
                 }
             }

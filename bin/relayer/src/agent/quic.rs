@@ -134,6 +134,12 @@ async fn run_connection<VALIDATE: ClusterValidator<REQ>, REQ: ClusterRequest>(
                         if let Err(e) = tx.send(Ok(0)) {
                             log::error!("[AgentTls] agent {agent_id} {session_id} send latest ping error: {:?}", e);
                         }
+                    },
+                    AgentSessionControl::ForeceStop(tx) => {
+                        if let Err(e) = tx.send(()) {
+                            log::error!("[AgentQuic] agent {agent_id} {session_id} send force stop error: {:?}", e);
+                        }
+                        break;
                     }
                 },
                 None => {

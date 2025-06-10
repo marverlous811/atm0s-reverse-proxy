@@ -134,6 +134,15 @@ async fn run_connection<VALIDATE: ClusterValidator<REQ>, REQ: ClusterRequest>(
                             }
                         });
                     }
+                    AgentSessionControl::ForeceStop(tx) => {
+                        let mut control = session.control().clone();
+                        tokio::spawn(async move {
+                            let _ = control.close().await;
+                            if let Err(e) = tx.send(()) {
+                                log::error!("[AgentTls] agent {agent_id} {session_id} send force stop error: {:?}", e);
+                            }
+                        });
+                    }
                 },
                 None => {
                     break;

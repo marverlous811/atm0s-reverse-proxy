@@ -83,6 +83,7 @@ pub enum QuicRelayerEvent {
 
 pub enum RelayerAgentCommand {
     AgentLatestPing(tokio::sync::oneshot::Sender<anyhow::Result<u64>>),
+    ForceStop(tokio::sync::oneshot::Sender<()>),
 }
 
 #[derive(Clone, Debug)]
@@ -99,6 +100,13 @@ impl RelayRequester {
         let (tx, rx) = tokio::sync::oneshot::channel();
         self.tx.send((agent_id, session_id, RelayerAgentCommand::AgentLatestPing(tx))).await?;
         rx.await.map_err(|_| anyhow!("channel closed"))?
+    }
+
+    pub async fn agent_force_stop(&self, agent_id: AgentId, session_id: AgentSessionId) -> anyhow::Result<()> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.tx.send((agent_id, session_id, RelayerAgentCommand::ForceStop(tx))).await?;
+        rx.await.map_err(|_| anyhow!("channel closed"))?;
+        Ok(())
     }
 }
 
@@ -341,18 +349,34 @@ where
 {
     match command {
         RelayerAgentCommand::AgentLatestPing(tx) => {
-            log::info!("[QuicRelayer] agent {} latest ping request", agent.session_id());
+            log::info!("[Relayer] agent {} latest ping request", agent.session_id());
             // We don't support ping in this relayer, so we just return 0
             let _ignore = agent
                 .latest_ping()
                 .await
                 .map_err(|e| {
-                    log::error!("[QuicRelayer] agent {} latest ping error: {:?}", agent.session_id(), e);
+                    log::error!("[Relayer] agent {} latest ping error: {:?}", agent.session_id(), e);
                     e
                 })
                 .and_then(|ping| {
                     if let Err(e) = tx.send(Ok(ping)) {
-                        log::error!("[QuicRelayer] agent {} send latest ping error: {:?}", agent.session_id(), e);
+                        log::error!("[Relayer] agent {} send latest ping error: {:?}", agent.session_id(), e);
+                    }
+                    Ok(())
+                });
+        }
+        RelayerAgentCommand::ForceStop(tx) => {
+            log::info!("[Relayer] agent {} force stop request", agent.session_id());
+            let _ignore = agent
+                .force_stop()
+                .await
+                .map_err(|e| {
+                    log::error!("[Relayer] agent {} force stop error: {:?}", agent.session_id(), e);
+                    e
+                })
+                .and_then(|_| {
+                    if let Err(e) = tx.send(()) {
+                        log::error!("[Relayer] agent {} send force stop error: {:?}", agent.session_id(), e);
                     }
                     Ok(())
                 });

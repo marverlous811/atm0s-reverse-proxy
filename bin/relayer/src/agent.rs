@@ -21,6 +21,7 @@ impl AgentSessionId {
 enum AgentSessionControl<S> {
     CreateStream(oneshot::Sender<anyhow::Result<S>>),
     LatestPing(oneshot::Sender<anyhow::Result<u64>>),
+    ForeceStop(oneshot::Sender<()>),
 }
 
 #[derive(Debug)]
@@ -87,5 +88,12 @@ impl<S: AsyncRead + AsyncWrite + Send + Sync + 'static> AgentSession<S> {
         let (tx, rx) = oneshot::channel();
         self.control_tx.send(AgentSessionControl::LatestPing(tx)).await?;
         rx.await?
+    }
+
+    pub async fn force_stop(&self) -> anyhow::Result<()> {
+        let (tx, rx) = oneshot::channel();
+        self.control_tx.send(AgentSessionControl::ForeceStop(tx)).await?;
+        rx.await?;
+        Ok(())
     }
 }
