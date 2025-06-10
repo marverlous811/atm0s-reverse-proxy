@@ -20,6 +20,7 @@ impl AgentSessionId {
 
 enum AgentSessionControl<S> {
     CreateStream(oneshot::Sender<anyhow::Result<S>>),
+    LatestPing(oneshot::Sender<anyhow::Result<u64>>),
 }
 
 #[derive(Debug)]
@@ -57,9 +58,9 @@ impl<S> Clone for AgentSession<S> {
 }
 
 pub enum AgentListenerEvent<C, S> {
-    Connected(AgentId, AgentSession<S>),
+    Connected(AgentId, AgentSession<S>, Option<String>),
     IncomingStream(AgentId, C, S),
-    Disconnected(AgentId, AgentSessionId),
+    Disconnected(AgentId, AgentSessionId, Option<String>),
 }
 
 pub trait AgentListener<C, S: AsyncRead + AsyncWrite> {
@@ -79,6 +80,12 @@ impl<S: AsyncRead + AsyncWrite + Send + Sync + 'static> AgentSession<S> {
     pub async fn create_stream(&self) -> anyhow::Result<S> {
         let (tx, rx) = oneshot::channel();
         self.control_tx.send(AgentSessionControl::CreateStream(tx)).await?;
+        rx.await?
+    }
+
+    pub async fn latest_ping(&self) -> anyhow::Result<u64> {
+        let (tx, rx) = oneshot::channel();
+        self.control_tx.send(AgentSessionControl::LatestPing(tx)).await?;
         rx.await?
     }
 }

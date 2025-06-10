@@ -101,11 +101,15 @@ async fn run_connection<VALIDATE: ClusterValidator<REQ>, REQ: ClusterRequest>(
     let (control_tx, mut control_rx) = channel(10);
 
     internal_tx
-        .send(AgentListenerEvent::Connected(agent_id, AgentSession::new(agent_id, session_id, domain, control_tx)))
+        .send(AgentListenerEvent::Connected(
+            agent_id,
+            AgentSession::new(agent_id, session_id, domain, control_tx),
+            Some(remote.to_string()),
+        ))
         .await
         .expect("should send to main loop");
 
-    log::info!("[AgentTls] new connection {agent_id} {session_id}  started loop");
+    log::info!("[AgentTls] new connection {remote} {agent_id} {session_id}  started loop");
     let mut session = Session::new_client(in_stream, Default::default());
     histogram!(METRICS_AGENT_HISTOGRAM).record(started.elapsed().as_millis() as f32 / 1000.0);
 
@@ -129,6 +133,15 @@ async fn run_connection<VALIDATE: ClusterValidator<REQ>, REQ: ClusterRequest>(
                             },
                         }
                     },
+                    AgentSessionControl::LatestPing(tx) => {
+                        let mut control = session.control().clone();
+                        tokio::spawn(async move {
+                            let latest_ping = control.latest_ping().await.map_err(|e| anyhow::anyhow!("failed to get latest ping: {e}"));
+                            if let Err(e) = tx.send(latest_ping) {
+                                log::error!("[AgentTls] agent {agent_id} {session_id} send latest ping error: {:?}", e);
+                            }
+                        });
+                    }
                 },
                 None => {
                     break;
@@ -154,9 +167,12 @@ async fn run_connection<VALIDATE: ClusterValidator<REQ>, REQ: ClusterRequest>(
         }
     }
 
-    log::info!("[AgentTls] agent {agent_id} {session_id}  stopped loop");
+    log::info!("[AgentTls] agent {agent_id} {session_id} with remote {remote}  stopped loop");
 
-    internal_tx.send(AgentListenerEvent::Disconnected(agent_id, session_id)).await.expect("should send to main loop");
+    internal_tx
+        .send(AgentListenerEvent::Disconnected(agent_id, session_id, Some(remote.to_string())))
+        .await
+        .expect("should send to main loop");
 
     Ok(())
 }

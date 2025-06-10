@@ -100,7 +100,7 @@ async fn run_connection<VALIDATE: ClusterValidator<REQ>, REQ: ClusterRequest>(
     let (control_tx, mut control_rx) = channel(10);
 
     internal_tx
-        .send(AgentListenerEvent::Connected(agent_id, AgentSession::new(agent_id, session_id, domain, control_tx)))
+        .send(AgentListenerEvent::Connected(agent_id, AgentSession::new(agent_id, session_id, domain, control_tx), None))
         .await
         .expect("should send to main loop");
 
@@ -130,6 +130,11 @@ async fn run_connection<VALIDATE: ClusterValidator<REQ>, REQ: ClusterRequest>(
                             }
                         });
                     },
+                    AgentSessionControl::LatestPing(tx) => {
+                        if let Err(e) = tx.send(Ok(0)) {
+                            log::error!("[AgentTls] agent {agent_id} {session_id} send latest ping error: {:?}", e);
+                        }
+                    }
                 },
                 None => {
                     break;
@@ -154,7 +159,7 @@ async fn run_connection<VALIDATE: ClusterValidator<REQ>, REQ: ClusterRequest>(
 
     log::info!("[AgentQuic] agent {agent_id} {session_id}  stopped loop");
 
-    internal_tx.send(AgentListenerEvent::Disconnected(agent_id, session_id)).await.expect("should send to main loop");
+    internal_tx.send(AgentListenerEvent::Disconnected(agent_id, session_id, None)).await.expect("should send to main loop");
 
     Ok(())
 }
