@@ -98,6 +98,7 @@ async fn main() {
         sdn_seeds: args.sdn_seeds.into_iter().map(|a| a.parse().expect("should parse to PeerAddress")).collect::<Vec<_>>(),
         sdn_secure: SharedKeyHandshake::from(args.sdn_secure_key.as_str()),
         sdn_advertise_address: args.sdn_advertise_address,
+        sdn_connection_timeout: 2,
         tunnel_service_handle: DummyTunnelHandle,
     };
     let validator = ClusterValidatorImpl::new(args.root_domain);

@@ -1,4 +1,8 @@
-use std::{collections::HashMap, net::SocketAddr, time::Instant};
+use std::{
+    collections::HashMap,
+    net::SocketAddr,
+    time::{Duration, Instant},
+};
 
 use ::metrics::{counter, gauge, histogram};
 use agent::{
@@ -71,6 +75,7 @@ pub struct QuicRelayerConfig<SECURE, TSH> {
     pub sdn_cert: CertificateDer<'static>,
     pub sdn_advertise_address: Option<SocketAddr>,
     pub sdn_secure: SECURE,
+    pub sdn_connection_timeout: u64,
 
     pub tunnel_service_handle: TSH,
 }
@@ -155,6 +160,7 @@ where
             tick_ms: 1000,
             seeds: cfg.sdn_seeds,
             secure: cfg.sdn_secure,
+            connect_timeout: Duration::from_secs(cfg.sdn_connection_timeout),
         })
         .await?;
 
