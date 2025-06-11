@@ -104,7 +104,10 @@ impl RelayRequester {
     pub async fn agent_latest_ping(&self, agent_id: AgentId, session_id: AgentSessionId) -> anyhow::Result<u64> {
         let (tx, rx) = tokio::sync::oneshot::channel();
         self.tx.send((agent_id, session_id, RelayerAgentCommand::AgentLatestPing(tx))).await?;
-        rx.await.map_err(|_| anyhow!("channel closed"))?
+        rx.await.map_err(|e| {
+            log::error!("[Relayer] agent {} latest ping error: {:?}", agent_id, e);
+            anyhow!("channel closed")
+        })?
     }
 
     pub async fn agent_force_stop(&self, agent_id: AgentId, session_id: AgentSessionId) -> anyhow::Result<()> {
