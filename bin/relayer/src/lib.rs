@@ -318,23 +318,35 @@ where
             event = self.rx.recv() => {
                 if let Some((agent_id, session_id, cmd)) = event {
                     if let Some(sessions) = self.agent_quic_sessions.get(&agent_id) {
-                        let session = sessions.get(&session_id).expect("should have session");
-                        let agent_session = session.0.clone();
-                        tokio::spawn(async move {
-                            handle_agent_command(agent_session, cmd).await;
-                        });
+                        if let Some(session) = sessions.get(&session_id) {
+                            // We have a session, so we can handle the command
+                            let agent_session = session.0.clone();
+                            tokio::spawn(async move {
+                                handle_agent_command(agent_session, cmd).await;
+                            });
+                        } else {
+                            log::warn!("[QuicRelayer] agent {} session {} not found", agent_id, session_id);
+                        }
                     } else if let Some(sessions) = self.agent_tcp_sessions.get(&agent_id) {
-                        let session = sessions.get(&session_id).expect("should have session");
-                        let agent_session = session.0.clone();
-                        tokio::spawn(async move {
-                            handle_agent_command(agent_session, cmd).await;
-                        });
+                        if let Some(session) = sessions.get(&session_id) {
+                            // We have a session, so we can handle the command
+                            let agent_session = session.0.clone();
+                            tokio::spawn(async move {
+                                handle_agent_command(agent_session, cmd).await;
+                            });
+                        } else {
+                            log::warn!("[QuicRelayer] agent {} session {} not found", agent_id, session_id);
+                        }
                     } else if let Some(sessions) = self.agent_tls_sessions.get(&agent_id) {
-                        let session = sessions.get(&session_id).expect("should have session");
-                        let agent_session = session.0.clone();
-                        tokio::spawn(async move {
-                            handle_agent_command(agent_session, cmd).await;
-                        });
+                        if let Some(session) = sessions.get(&session_id) {
+                            // We have a session, so we can handle the command
+                            let agent_session = session.0.clone();
+                            tokio::spawn(async move {
+                                handle_agent_command(agent_session, cmd).await;
+                            });
+                        } else {
+                            log::warn!("[QuicRelayer] agent {} session {} not found", agent_id, session_id);
+                        }
                     }
                 }
 

@@ -13,7 +13,7 @@ protocol = { path = "crates/protocol", package = "atm0s-reverse-proxy-protocol",
 protocol-ed25519 = { path = "crates/protocol_ed25519", package = "atm0s-reverse-proxy-protocol-ed25519", version = "0.1.5" }
 
 log = "0.4"
-tokio-yamux = { git = "https://github.com/marverlous811/tentacle.git", rev = "39142b9098db4c2a69d48b96bfc369f92692f2a3" }
+tokio-yamux = { git = "https://github.com/marverlous811/tentacle.git", rev = "4d0933ba05deb947466b97f1b5805b3939588979" }
 clap = "4.4"
 argh = "=0.1.13" # small cli
 async-trait = "0.1"
