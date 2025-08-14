@@ -507,6 +507,8 @@ async fn proxy_local_to_agent<T: AsyncRead + AsyncWrite + Send + Sync + Unpin + 
         }
     };
 
+    drop(proxy);
+    drop(stream);
     histogram!(METRICS_TUNNEL_AGENT_HISTOGRAM).record(started.elapsed().as_millis() as f32 / 1000.0);
     if is_from_cluster {
         gauge!(METRICS_PROXY_CLUSTER_LIVE).decrement(1.0);
@@ -555,6 +557,9 @@ async fn proxy_to_cluster<T: AsyncRead + AsyncWrite + Send + Sync + Unpin + 'sta
             Err(e.into())
         }
     };
+
+    drop(proxy);
+    drop(stream);
 
     histogram!(METRICS_TUNNEL_CLUSTER_HISTOGRAM).record(started.elapsed().as_millis() as f32 / 1000.0);
     gauge!(METRICS_PROXY_OUTSIDE_LIVE).decrement(1.0);
