@@ -4,6 +4,7 @@ use futures::StreamExt;
 use metrics::histogram;
 use protocol::key::{ClusterRequest, ClusterValidator};
 use protocol::proxy::AgentId;
+use protocol::session::YamuxSession;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use serde::de::DeserializeOwned;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -14,14 +15,15 @@ use tokio::{
     sync::mpsc::{channel, Receiver, Sender},
 };
 use tokio_rustls::TlsAcceptor;
-use tokio_yamux::{Session, StreamHandle};
+use tokio_util::compat::{Compat, FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
+use yamux::Stream;
 
 use crate::agent::{AgentSession, AgentSessionControl};
 use crate::{AgentSessionId, METRICS_AGENT_HISTOGRAM};
 
 use super::{AgentListener, AgentListenerEvent};
 
-pub type TunnelTlsStream = StreamHandle;
+pub type TunnelTlsStream = Compat<Stream>;
 pub struct AgentTlsListener<VALIDATE, HANDSHAKE: ClusterRequest> {
     tls_acceptor: Arc<TlsAcceptor>,
     validate: Arc<VALIDATE>,
@@ -110,7 +112,9 @@ async fn run_connection<VALIDATE: ClusterValidator<REQ>, REQ: ClusterRequest>(
         .expect("should send to main loop");
 
     log::info!("[AgentTls] new connection {remote} {agent_id} {session_id}  started loop");
-    let mut session = Session::new_client(in_stream, Default::default());
+    // let mut session = Session::new_client(in_stream, Default::default());
+    let cfg = Some(Default::default());
+    let mut session = YamuxSession::new_client(in_stream.compat(), cfg);
     histogram!(METRICS_AGENT_HISTOGRAM).record(started.elapsed().as_millis() as f32 / 1000.0);
 
     loop {
@@ -119,10 +123,10 @@ async fn run_connection<VALIDATE: ClusterValidator<REQ>, REQ: ClusterRequest>(
                 Some(control) => match control {
                     AgentSessionControl::CreateStream(tx) => {
                         log::info!("[AgentTls] agent {agent_id} {session_id} create stream request");
-                        match session.open_stream() {
+                        match session.create_stream().await {
                             Ok(stream) => {
                                 log::info!("[AgentTls] agent {agent_id} {session_id} created stream");
-                                if let Err(_e) = tx.send(Ok(stream)) {
+                                if let Err(_e) = tx.send(Ok(stream.compat())) {
                                     log::error!("[AgentTls] agent {agent_id} {session_id}  send created stream error");
                                 }
                             },
@@ -133,25 +137,8 @@ async fn run_connection<VALIDATE: ClusterValidator<REQ>, REQ: ClusterRequest>(
                             },
                         }
                     },
-                    AgentSessionControl::LatestPing(tx) => {
-                        let mut control = session.control().clone();
-                        tokio::spawn(async move {
-                            let latest_ping = control.latest_ping().await.map_err(|e| anyhow::anyhow!("failed to get latest ping: {e}"));
-                            if let Err(e) = tx.send(latest_ping) {
-                                log::error!("[AgentTls] agent {agent_id} {session_id} send latest ping error: {:?}", e);
-                            }
-                        });
-                    }
-                    AgentSessionControl::ForeceStop(tx) => {
-                        log::info!("[AgentTls] agent {agent_id} {session_id} force stop session");
-                        let mut control = session.control().clone();
-                        tokio::spawn(async move {
-                            let _ = control.close().await;
-                            if let Err(e) = tx.send(()) {
-                                log::error!("[AgentTls] agent {agent_id} {session_id} send force stop error: {:?}", e);
-                            }
-                        });
-                    }
+                    AgentSessionControl::LatestPing(_) => {}
+                    AgentSessionControl::ForeceStop(_) => {}
                 },
                 None => {
                     break;
@@ -162,7 +149,7 @@ async fn run_connection<VALIDATE: ClusterValidator<REQ>, REQ: ClusterRequest>(
                     let internal_tx = internal_tx.clone();
                     let agent_ctx = agent_ctx.clone();
                     tokio::spawn(async move {
-                        internal_tx.send(AgentListenerEvent::IncomingStream(agent_id, agent_ctx, stream)).await.expect("should send to main loop");
+                        internal_tx.send(AgentListenerEvent::IncomingStream(agent_id, agent_ctx, stream.compat())).await.expect("should send to main loop");
                     });
                 },
                 Some(Err(err)) => {

@@ -2,6 +2,7 @@ pub mod cluster;
 pub mod key;
 pub mod proxy;
 pub mod services;
+pub mod session;
 pub mod stream;
 pub mod time;
 

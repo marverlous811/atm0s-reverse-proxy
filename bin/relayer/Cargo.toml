@@ -9,7 +9,6 @@ license = "MIT"
 p2p = { workspace = true }
 protocol = { workspace = true }
 protocol-ed25519 = { workspace = true, optional = true }
-metrics-dashboard = { workspace = true, features = ["system"], optional = true }
 tokio = { workspace = true, features = ["full"] }
 clap = { workspace = true, features = ["derive", "env", "color"] }
 quinn = { workspace = true, features = ["ring", "runtime-tokio", "futures-io"] }
@@ -27,15 +26,15 @@ httparse = { workspace = true }
 tls-parser = { workspace = true }
 rtsp-types = { workspace = true }
 bincode = { workspace = true }
-poem = { workspace = true, optional = true }
 metrics = { workspace = true }
 tokio-yamux = { workspace = true }
 tokio-rustls = { workspace = true }
+yamux = { workspace = true }
+tokio-util = { workspace = true, features = ["compat"] }
 
 [dev-dependencies]
 test-log = { workspace = true }
 
 [features]
 default = ["binary"]
-expose-metrics = ["metrics-dashboard", "poem"]
-binary = ["protocol-ed25519", "expose-metrics"]
+binary = ["protocol-ed25519"]
