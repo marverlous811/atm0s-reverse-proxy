@@ -47,7 +47,7 @@ test-log = "0.2"
 lru = "0.12"
 tokio-native-tls = "0.3.1"
 tokio-rustls = "0.26.1"
-yamux = "0.13"
+yamux = { git = "https://github.com/marverlous811/rust-yamux.git", rev = "c4f80925b9c17de39d5fcdb708e948547720c3dc" }
 
 [profile.release]
 strip = true  # Automatically strip symbols from the binary.
