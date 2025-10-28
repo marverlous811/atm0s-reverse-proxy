@@ -1,8 +1,4 @@
-use std::{
-    collections::HashMap,
-    net::SocketAddr,
-    time::{Duration, Instant},
-};
+use std::{collections::HashMap, net::SocketAddr, time::Instant};
 
 use ::metrics::{counter, gauge, histogram};
 use agent::{
@@ -163,7 +159,6 @@ where
             tick_ms: 1000,
             seeds: cfg.sdn_seeds,
             secure: cfg.sdn_secure,
-            connect_timeout: Duration::from_secs(cfg.sdn_connection_timeout),
         })
         .await?;
 
