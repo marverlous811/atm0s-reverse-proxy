@@ -5,7 +5,7 @@ use metrics::histogram;
 use protocol::{
     key::{ClusterRequest, ClusterValidator},
     proxy::AgentId,
-    session::YamuxSession,
+    // session::YamuxSession,
 };
 use serde::de::DeserializeOwned;
 use tokio::{
@@ -15,7 +15,8 @@ use tokio::{
     sync::mpsc::{channel, Receiver, Sender},
 };
 use tokio_util::compat::{Compat, FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
-use yamux::Stream;
+use yamux_low_mem::{stream::YamuxStream as Stream, YamuxSession};
+// use yamux::Stream;
 
 use crate::{agent::AgentSessionControl, METRICS_AGENT_HISTOGRAM};
 
@@ -106,7 +107,7 @@ async fn run_connection<VALIDATE: ClusterValidator<REQ>, REQ: ClusterRequest>(
     log::info!("[AgentTcp] new connection {agent_id} {session_id}  started loop");
     // let mut session = Session::new_client(in_stream, Default::default());
 
-    let mut session = YamuxSession::new_client(in_stream.compat(), Default::default());
+    let mut session = YamuxSession::client(in_stream.compat(), 65536);
     histogram!(METRICS_AGENT_HISTOGRAM).record(started.elapsed().as_millis() as f32 / 1000.0);
 
     loop {
@@ -115,18 +116,10 @@ async fn run_connection<VALIDATE: ClusterValidator<REQ>, REQ: ClusterRequest>(
                 Some(control) => match control {
                     AgentSessionControl::CreateStream(tx) => {
                         log::info!("[AgentTcp] agent {agent_id} {session_id} create stream request");
-                        match session.create_stream().await {
-                            Ok(stream) => {
-                                log::info!("[AgentTcp] agent {agent_id} {session_id} created stream");
-                                if let Err(_e) = tx.send(Ok(stream.compat())) {
-                                    log::error!("[AgentTcp] agent {agent_id} {session_id}  send created stream error");
-                                }
-                            },
-                            Err(err) => {
-                                if let Err(_e) = tx.send(Err(err.into())) {
-                                    log::error!("[AgentTcp] agent {agent_id} {session_id}  send create stream's error, may be internal channel failed");
-                                }
-                            },
+                        let stream = session.open_stream();
+                        log::info!("[AgentTls] agent {agent_id} {session_id} created stream");
+                        if let Err(_e) = tx.send(Ok(stream.compat())) {
+                            log::error!("[AgentTls] agent {agent_id} {session_id} send created stream error");
                         }
                     },
                     AgentSessionControl::LatestPing(_) => {}
@@ -137,16 +130,12 @@ async fn run_connection<VALIDATE: ClusterValidator<REQ>, REQ: ClusterRequest>(
                 }
             },
             accept = session.next() => match accept {
-                Some(Ok(stream)) => {
+                Some(stream) => {
                     let internal_tx = internal_tx.clone();
                     let agent_ctx = agent_ctx.clone();
                     tokio::spawn(async move {
                         internal_tx.send(AgentListenerEvent::IncomingStream(agent_id, agent_ctx, stream.compat())).await.expect("should send to main loop");
                     });
-                },
-                Some(Err(err)) => {
-                    log::error!("[AgentTcp] agent {agent_id} {session_id} Tcp connection error {err:?}");
-                    break;
                 },
                 None => {
                     log::error!("[AgentTcp] agent {agent_id} {session_id} Tcp connection broken with None");
