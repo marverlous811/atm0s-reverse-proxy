@@ -1,4 +1,9 @@
-use std::{marker::PhantomData, net::SocketAddr, sync::Arc, time::Instant};
+use std::{
+    marker::PhantomData,
+    net::SocketAddr,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use futures::StreamExt;
 use metrics::histogram;
@@ -15,7 +20,7 @@ use tokio::{
     sync::mpsc::{channel, Receiver, Sender},
 };
 use tokio_util::compat::{Compat, FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
-use yamux_low_mem::{stream::YamuxStream as Stream, YamuxSession};
+use yamux_low_mem::{session::KeepAliveConfig, stream::YamuxStream as Stream, YamuxSession, YamuxSessionConfig};
 // use yamux::Stream;
 
 use crate::{agent::AgentSessionControl, METRICS_AGENT_HISTOGRAM};
@@ -107,7 +112,14 @@ async fn run_connection<VALIDATE: ClusterValidator<REQ>, REQ: ClusterRequest>(
     log::info!("[AgentTcp] new connection {agent_id} {session_id}  started loop");
     // let mut session = Session::new_client(in_stream, Default::default());
 
-    let mut session = YamuxSession::client(in_stream.compat(), 65536);
+    let cfg = YamuxSessionConfig {
+        max_write_buffer: 65536,
+        keep_alive_config: Some(KeepAliveConfig {
+            interval: Duration::from_secs(10),
+            timeout: Duration::from_secs(30),
+        }),
+    };
+    let mut session = YamuxSession::client(in_stream.compat(), cfg);
     histogram!(METRICS_AGENT_HISTOGRAM).record(started.elapsed().as_millis() as f32 / 1000.0);
 
     loop {

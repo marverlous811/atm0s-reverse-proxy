@@ -48,7 +48,7 @@ lru = "0.12"
 tokio-native-tls = "0.3.1"
 tokio-rustls = "0.26.1"
 yamux = { git = "https://github.com/marverlous811/rust-yamux.git", rev = "c4f80925b9c17de39d5fcdb708e948547720c3dc" }
-yamux-low-mem = { git = "https://github.com/8xFF/yamux-low-mem" , rev = "86c394f0eec81529f234a178f0e9044358862a47" }
+yamux-low-mem = { git = "https://github.com/marverlous811/yamux-low-mem" , rev = "6565fccc2f73ce03e0c74ad5dabf15985242a38a" }
 
 [profile.release]
 strip = true  # Automatically strip symbols from the binary.
