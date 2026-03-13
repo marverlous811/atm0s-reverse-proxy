@@ -31,7 +31,7 @@ tokio-yamux = { workspace = true }
 tokio-rustls = { workspace = true }
 yamux = { workspace = true }
 tokio-util = { workspace = true, features = ["compat"] }
-yamux-low-mem = { workspace = true }
+# yamux-low-mem = { workspace = true }
 
 [dev-dependencies]
 test-log = { workspace = true }
